@@ -2,6 +2,7 @@
 import socket
 import signal
 import subprocess
+import zipfile
 
 logPath="c:\cygwin64\home\Dave\KWH-Listener\listener.log"
 
