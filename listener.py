@@ -3,8 +3,10 @@ import socket
 import signal
 import subprocess
 import zipfile
+from _thread import *
+import threading
 
-logPath="c:\cygwin64\home\Dave\KWH-Listener\listener.log"
+logPath="/KWH-Listener/logs/listener.log"
 
 def signal_handler(signal, frame):
     s.close()
@@ -17,15 +19,35 @@ def log(logText):
     with open(logPath, "a") as log:
         log.write(logText)
 
-# Logger
+# Unzipper
 def unzip(path):
     zip_ref = zipfile.ZipFile(path, 'r')
     zip_ref.extractall(directory)
     zip_ref.close()
 
+# thread fuction
+def threaded(c):
+    while True:
+        # data received from client
+        data = c.recv(1024)
+        if not data:
+            print('Bye')
+             
+            # lock released on exit
+            print_lock.release()
+            break
+ 
+        # Do stuff with data
+ 
+        # send back to client
+        c.send(data)
+ 
+    # connection closed
+    c.close()
+
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 host = ''
-port = 11003
+port = 11001
 
 try:
     s.bind((host, port))
@@ -53,6 +75,14 @@ while True:
     # Send comfirmation back to datalogger
     cs.send(bytes("@888", "utf-8")) #KP standard - only used for backwards compatibility
     
+    # Start a new thread and return its identifier
+    start_new_thread(threaded, (c,))
+    s.close()
+    
     # Close client connection
     cs.close()
     log("Client connection closed\n")
+s.close()
+
+if __name__ == '__main__':
+    Main()
