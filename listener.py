@@ -16,6 +16,12 @@ def log(logText):
     with open(logPath, "a") as log:
         log.write(logText)
 
+# Logger
+def unzip(path):
+    zip_ref = zipfile.ZipFile(path, 'r')
+    zip_ref.extractall(directory)
+    zip_ref.close()
+
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 host = ''
 port = 11003
