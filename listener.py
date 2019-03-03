@@ -14,10 +14,13 @@ def signal_handler(signal, frame):
     exit()
 signal.signal(signal.SIGINT, signal_handler)
 
-# Logger
-def log(logText):
-    with open(logPath, "a") as log:
-        log.write(logText)
+# Loggers
+def logtext(textToLog):
+    with open(logPath, "w") as log:
+        log.write(textToLog)
+def logbytes(bytesToLog):
+    with open(logPath, "wb") as log:
+        log.write(bytesToLog)
 
 # Unzipper
 def unzip(path):
@@ -27,13 +30,13 @@ def unzip(path):
 
 # thread fuction
 def threaded(c):
-    data = str(c.recv(50000))
+    data = c.recv(300000)
     # Do stuff with data
-    log(data)
+    logbytes(data)
 
     # Send comfirmation back to datalogger
     c.send(bytes("@888", "utf-8"))
-    c.send(bytes(data, "utf-8"))
+    c.send(data)
 
     # connection closed
     c.close()
@@ -45,10 +48,10 @@ port = 11003
 try:
     s.bind((host, port))
 except:
-    log("Port "+str(port)+" in use\n")
+    logtext("Port "+str(port)+" in use\n")
     exit()
 
-log("Listening...\n")
+logtext("Listening...\n")
 
 s.listen(1)
 
