@@ -5,6 +5,7 @@ import subprocess
 import zipfile
 from _thread import *
 import threading
+import zlib
 
 logPath="/KWH-Listener/listener.log"
 
