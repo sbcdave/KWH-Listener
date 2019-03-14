@@ -2,12 +2,9 @@
 import socket
 import signal
 import subprocess
-import zipfile
 from _thread import *
 import threading
 import zlib
-
-logPath="/KWH-Listener/listener.log"
 
 def signal_handler(signal, frame):
     s.close()
@@ -15,33 +12,43 @@ def signal_handler(signal, frame):
     exit()
 signal.signal(signal.SIGINT, signal_handler)
 
-# Loggers
-def logtext(textToLog):
+logPath="/KWH-Listener/listener.log"
+def log(textToLog):
     with open(logPath, "w") as log:
         log.write(textToLog)
-def logbytes(bytesToLog):
-    with open(logPath, "wb") as log:
-        log.write(bytesToLog)
 
-# Unzipper
-def unzip(path):
-    zip_ref = zipfile.ZipFile(path, 'r')
-    zip_ref.extractall(directory)
-    zip_ref.close()
+def un_gzip(data):
+    return str(zlib.decompress(data))
 
 # thread fuction
 def threaded(c):
     data = c.recv(300000)
-    # Do stuff with data
-    logbytes(data)
+    # Need logic for if compressed ..., else un_gzip
+    data = un_gzip(data)
+
+    # Need try catch to protect from spam
+    log(data)
+    data = data.split("#")
+    password = data[0]
+    data = data[1].split(";")
+    for data_point in data:
+        temp = data_point.split(":")
+        key = temp[0]
+        value = temp[1]
+        print("key: "+key)
+        print("value: "+value)
+
 
     # Send comfirmation back to datalogger
+    # Might update to send back time stamp to help dataloggers
+    # parallelize transmissions
     c.send(bytes("@888", "utf-8"))
-    c.send(data)
 
     # connection closed
     c.close()
 
+
+# listener setup
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 host = ''
 port = 11003
@@ -49,19 +56,19 @@ port = 11003
 try:
     s.bind((host, port))
 except:
-    logtext("Port "+str(port)+" in use\n")
+    log("Port "+str(port)+" in use\n")
     exit()
 
-logtext("Listening...\n")
+log("Listening...\n")
 
 s.listen(1)
 
-# Daemon listen on PORT for data
+# listener listens on PORT for data. On receipt of data it passes 
+# the data to a thread, and continues listening
 while True:
     # Waits for a command
     cs,addr = s.accept()
 
-    # Start a new thread and return its identifier
     start_new_thread(threaded, (cs,))
 
 if __name__ == '__main__':
