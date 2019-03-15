@@ -71,12 +71,9 @@ def check_and_parse(c):
 
             for item in parse3:
                 MESSAGE = STA+"."+item[0]+" "+item[1]+" "+TIME
-                print(MESSAGE)
-#                db.send(MESSAGE)
-#                rcv = s.recv(1024)
-#                print(rcv)
+                db.send(MESSAGE)
+                rcv = s.recv(1024)
             s.close()
-        #echo "$STA.AD02 ${BASH_REMATCH[1]} $DATE" | nc -q0 127.0.0.1 2003
 
         except ValueError as error:
             if error == "Bad password":
