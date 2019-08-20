@@ -7,9 +7,10 @@ import threading
 import zlib
 import sys
 
-DEBUG = 0
+DEBUG = 1
 
 def signal_handler(signal, frame):
+    s.shutdown(socket.SHUT_RDWR)
     s.close()
     cs.close()
     exit()
@@ -29,6 +30,8 @@ def un_gzip(data):
 def check_and_parse(c):
     DEBUG = 0
     data = c.recv(300000)
+    bytes_received = len(data)
+
     if DEBUG:
         print(data)
 
@@ -46,14 +49,7 @@ def check_and_parse(c):
         # Confirm it's not spam before logging or responding
         try:
             parse1 = str(data).split("#")
-            # Check if it's a king pigeon
-            if parse1[0] == "":
-                # It looks like a king pigeon
-                # Add KP parser code here later for backwards compatability
-                log("No password: "+parse1[1])
-                if DEBUG:
-                    print("In KP parse block")
-            elif parse1[1][:3] == "STA":
+            if parse1[1][:3] == "STA":
                 # Check if it's a KWH Data Logger RTU
                 password = parse1[0]
                 parse2 = parse1[1].split(";")
@@ -61,14 +57,31 @@ def check_and_parse(c):
                 if DEBUG:
                     print("KWH Block about to split pairs")
                 for pair in parse2:
+                    # Grab STA station id variable
                     if pair.split(":")[0] == "STA":
                         STA = pair.split(":")[1]
                         if DEBUG:
                             print("STA: "+STA)
+                    # Grab timestamp as variable
                     elif pair.split(":")[0] == "TM":
                         TIME = pair.split(":")[1]
                         if DEBUG:
                             print("TIME: "+TIME)
+                    # Split out DISK data
+                    elif pair.split(":")[0] == "DISK":
+                        if DEBUG:
+                           print("In DISK block")
+                        value = pair.split(":")[1]
+                        if DEBUG:
+                           print("value: "+value)
+                        DiskFREEkB = str(int(float(value)))
+                        if DEBUG:
+                           print("DiskFreekB: "+DiskFREEkB)
+                        DiskPercentUsed = str(float(value)-int(DiskFREEkB))
+                        if DEBUG:
+                           print("DiskPercentUsed: "+DiskPercentUsed)
+                        parse3.append(["DiskFREEkB", DiskFREEkB])
+                        parse3.append(["DiskPercentUsed", DiskPercentUsed])
                     else:
                         parse3.append(pair.split(":"))
                 # If we are here, it's likely a KWH Data Logger RTU
@@ -79,33 +92,39 @@ def check_and_parse(c):
                 raise ValueError("SPAM")
 
             # If we made it to here the data seems legitimate
-            log(str(data))
-
             # Send comfirmation back to datalogger
             c.send(bytes(TIME, "utf-8"))
             if DEBUG:
-                print("Closing connection")
+                log("Closing connection")
+            c.shutdown(socket.SHUT_RDWR)
             c.close()
+
+            # Calculate bytes received and compression efficiency
+            uncompressed_bytes = len(data)
+            compression_efficiency = 1.0 - (float(bytes_received)/float(uncompressed_bytes))
+            log(str(bytes_received)+":"+str(uncompressed_bytes)+":"+str(compression_efficiency)+":"+str(data))
+
+            # Add computed data to parse3 array for inserts into graphite
+            parse3.append(["uncompressed_bytes", uncompressed_bytes])
+            parse3.append(["bytes_received", bytes_received])
+            parse3.append(["compression_efficiency", compression_efficiency])
 
             # Put in database
             import graphyte
             for item in parse3:
-#                graphite = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 graphyte.init('127.0.0.1', prefix=STA)
-#                MESSAGE = (STA+"."+item[0]+" "+item[1]+" "+TIME).encode("UTF-8")
                 graphyte.send(item[0], float(item[1]), timestamp=int(TIME))
 
-#                try:
-#                    graphite.sendto(MESSAGE, ('127.0.0.1', 2003))
                 if DEBUG:
                     print("Send to Graphite complete")
-#                finally:
-#                    graphite.close()
 
         except ValueError as error:
             if error == "Bad password":
                 log("BAD PASSWORD:"+str(data))
             # SPAM
+        except Exception as error:
+            log(str(error))
+            print(error)
         except:
             pass
 
